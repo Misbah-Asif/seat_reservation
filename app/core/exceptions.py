@@ -8,10 +8,13 @@ class DomainError(Exception):
     """An expected business outcome (seat taken, show missing, ...), not a bug.
 
     Always maps to a 4xx with a stable `error` code, never a 500. The code is
-    also what the declined-by-reason metric will be labelled with later."""
+    mapped to a metric label via `metric_reason`."""
 
     status_code = 400
     error = "bad_request"
+    # Label for reservations_declined_total when a reserve request ends with
+    # this error. None: not counted as a reservation decline.
+    metric_reason: str | None = None
 
     def __init__(self, **details: Any):
         super().__init__(self.error)
@@ -21,6 +24,7 @@ class DomainError(Exception):
 class ShowNotFound(DomainError):
     status_code = 404
     error = "show_not_found"
+    metric_reason = "show_not_found"
 
 
 class ReservationNotFound(DomainError):
@@ -34,16 +38,19 @@ class ReservationNotFound(DomainError):
 class SeatsNotFound(DomainError):
     status_code = 404
     error = "seats_not_found"
+    metric_reason = "seats_not_found"
 
 
 class SeatsUnavailable(DomainError):
     status_code = 409
     error = "seats_unavailable"
+    metric_reason = "seat_taken"
 
 
 class PerUserLimitExceeded(DomainError):
     status_code = 409
     error = "per_user_limit_exceeded"
+    metric_reason = "per_user_limit"
 
 
 class IdempotencyKeyReused(DomainError):
@@ -51,6 +58,7 @@ class IdempotencyKeyReused(DomainError):
 
     status_code = 409
     error = "idempotency_key_reused"
+    metric_reason = "idempotency_key_reused"
 
 
 async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:

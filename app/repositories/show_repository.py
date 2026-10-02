@@ -1,4 +1,4 @@
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.enums import SeatStatusEnum, SeatTypeEnum
@@ -44,3 +44,14 @@ class ShowRepository:
             select(Seat.seat_label, Seat.status).where(Seat.show_id == show_id).order_by(Seat.id)
         )
         return [(label, status) for label, status in result]
+
+    async def count_seats_by_show_and_status(self) -> list[tuple[int, SeatStatusEnum, int]]:
+        """(show_id, status, count) across all shows, for the seat gauges.
+
+        One GROUP BY statement, so every show's numbers come from the same
+        snapshot and add up to its total. Uses the (show_id, status) index.
+        """
+        result = await self.db.execute(
+            select(Seat.show_id, Seat.status, func.count()).group_by(Seat.show_id, Seat.status)
+        )
+        return [(show_id, status, count) for show_id, status, count in result]

@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=10, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
     db_pool_timeout: float = Field(default=30, gt=0)
+    # /health/ready gives up and returns 503 after this many seconds.
+    ready_timeout_seconds: float = Field(default=2, gt=0)
 
     # Auth. Users: HS256 JWTs signed with jwt_secret. Admin: a static key sent
     # in the X-Admin-Key header. Both secrets are required; the app won't start

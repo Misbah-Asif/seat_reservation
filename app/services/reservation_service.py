@@ -100,12 +100,14 @@ class ReservationService:
 
     async def cancel_reservation(
         self, reservation_id: uuid.UUID, user_id: str
-    ) -> ReservationResponse:
+    ) -> tuple[ReservationResponse, bool]:
         """Cancel the caller's own reservation and free its seats.
+
+        Returns (reservation, cancelled_now). cancelled_now is False when it
+        was already cancelled: that call is a no-op that just returns it.
 
         Lock order matches reserve: user lock, then the reservation row, then
         its seats in seat_label order, so cancel and reserve can't deadlock.
-        Cancelling an already-cancelled reservation is a no-op that returns it.
         """
         try:
             # Same per-user lock as reserve: this user's reserves and cancels take
@@ -117,7 +119,8 @@ class ReservationService:
             if reservation is None or reservation.user_id != user_id:
                 raise ReservationNotFound(reservation_id=str(reservation_id))
 
-            if reservation.status != ReservationStatusEnum.CANCELLED:
+            cancelled_now = reservation.status != ReservationStatusEnum.CANCELLED
+            if cancelled_now:
                 await self.reservations.lock_reservation_seats(reservation.id)
                 await self.reservations.release_seats(reservation.id)
                 reservation.status = ReservationStatusEnum.CANCELLED
@@ -129,7 +132,7 @@ class ReservationService:
             await self.db.rollback()
             raise
 
-        return result
+        return result, cancelled_now
 
     @staticmethod
     def _to_response(reservation: Reservation) -> ReservationResponse:
