@@ -32,8 +32,8 @@ class Reservation(AuditMixin, Base):
     idempotency_key: Mapped[str] = mapped_column(String(100), nullable=False)
     # Snapshot of the seats booked, always stored sorted. Used to replay the
     # original response, and to spot a reused key: same key with a different
-    # show_id or seat_ids is a 409. Current ownership is seat.reservation_id.
-    seat_ids: Mapped[list[str]] = mapped_column(ARRAY(String(100)), nullable=False)
+    # show_id or seat_labels is a 409. Current ownership is seat.reservation_id.
+    seat_labels: Mapped[list[str]] = mapped_column(ARRAY(String(100)), nullable=False)
     # Sum of seat prices at booking time; later price changes don't touch it.
     amount_paise: Mapped[int] = mapped_column(nullable=False)
     status: Mapped[ReservationStatusEnum] = mapped_column(

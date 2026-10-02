@@ -28,7 +28,7 @@ class ReservationService:
         instead of 201: a retry must never look like a second winner.
 
         One transaction, locks always taken in the same order (this user's
-        advisory lock, then seat rows sorted by seat_id), so no deadlocks.
+        advisory lock, then seat rows sorted by seat_label), so no deadlocks.
         Every decline rolls back before raising, releasing locks immediately.
         """
         seat_labels = sorted(payload.seats)
@@ -43,7 +43,7 @@ class ReservationService:
                 user_id, payload.idempotency_key
             )
             if existing is not None:
-                if existing.show_id != show_id or existing.seat_ids != seat_labels:
+                if existing.show_id != show_id or existing.seat_labels != seat_labels:
                     raise IdempotencyKeyReused(idempotency_key=payload.idempotency_key)
                 # Build before rollback: rollback expires loaded objects.
                 replay = self._to_response(existing)
@@ -69,10 +69,10 @@ class ReservationService:
 
             # 5. The real decision: lock the seats, then check them under the lock.
             seats = await self.reservations.lock_seats(show_id, seat_labels)
-            missing = sorted(set(seat_labels) - {s.seat_id for s in seats})
+            missing = sorted(set(seat_labels) - {s.seat_label for s in seats})
             if missing:
                 raise SeatsNotFound(seats=missing)
-            taken = [s.seat_id for s in seats if s.status != SeatStatusEnum.AVAILABLE]
+            taken = [s.seat_label for s in seats if s.status != SeatStatusEnum.AVAILABLE]
             if taken:
                 raise SeatsUnavailable(unavailable_seats=taken)
 
@@ -101,7 +101,7 @@ class ReservationService:
             reservation_id=reservation.id,
             show_id=reservation.show_id,
             user_id=reservation.user_id,
-            seats=reservation.seat_ids,
+            seats=reservation.seat_labels,
             amount_paise=reservation.amount_paise,
             status=reservation.status,
         )

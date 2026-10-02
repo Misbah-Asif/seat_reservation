@@ -4,7 +4,7 @@
 - You want the price on each **seat**, because `regular` / `special` / `vip` seats will have different prices.
 - `seat_type` must be an enum with exactly those three values.
 - The current `reservation` table stores one row per seat. Combined with `UNIQUE(user_id, idempotency_key)`, that blocks multi-seat bookings.
-- We discussed one-table vs two-table designs. This plan uses the **one-table design**: `reservation` (one row per booking, with a `seat_ids` snapshot) plus `seat.reservation_id` (the current owner).
+- We discussed one-table vs two-table designs. This plan uses the **one-table design**: `reservation` (one row per booking, with a `seat_labels` snapshot) plus `seat.reservation_id` (the current owner).
 - "Is A15 reserved, and by whom?" is answered from the `seat` table. The array is only used for idempotent replays.
 
 **Scope of this step: the schema for all three tables, plus updating `POST /shows`.** The `/reserve` logic (locking, per-user limit, expiry) is the next step and will be discussed first.
@@ -27,25 +27,25 @@ All tables keep `AuditMixin` (`is_active, created_at, updated_at, deleted_at`). 
 |---|---|---|
 | id | int PK | |
 | show_id | FK → show.id | NOT NULL |
-| seat_id | varchar(100) | NOT NULL, the label, e.g. "A15" |
+| seat_label | varchar(100) | NOT NULL, the label, e.g. "A15" |
 | seat_type | enum `regular` / `special` / `vip` | NOT NULL, default `regular` |
 | price_paise | int | NOT NULL, CHECK ≥ 0 |
 | status | enum `available` / `held` / `confirmed` | NOT NULL, default `available` |
-| reservation_id | FK → reservation.id | NULL when the seat is available |
+| reservation_id | uuid FK → reservation.id | NULL when the seat is available |
 
 Constraints:
-- `UNIQUE(show_id, seat_id)`: one A15 per show. It's also the index used for "is A15 reserved?".
+- `UNIQUE(show_id, seat_label)`: one A15 per show. It's also the index used for "is A15 reserved?".
 - `INDEX(show_id, status)`: makes the available/held/confirmed counts fast.
 - `CHECK ((status = 'available') = (reservation_id IS NULL))`: the database itself rejects a held seat with no owner, or an available seat that still points to a reservation.
 
 ### `reservation` (replaces the current table)
 | column | type | rule / why |
 |---|---|---|
-| id | int PK | the `reservation_id` returned by the API |
+| id | uuid PK, default `gen_random_uuid()` | the `reservation_id` returned by the API. A UUID so ids can't be guessed and don't reveal sales volume. `show` and `seat` keep int ids because they're public or never exposed |
 | show_id | FK → show.id | NOT NULL |
 | user_id | varchar(100) | NOT NULL, the token's subject (was int) |
 | idempotency_key | varchar(100) | NOT NULL |
-| seat_ids | varchar(100)[] | NOT NULL, a snapshot of the requested seats, **always sorted**. Used to replay the original response. Same key with a different show_id or seat_ids → 409 (`request_hash` was dropped: comparing these columns does the same job) |
+| seat_labels | varchar(100)[] | NOT NULL, a snapshot of the requested seats, **always sorted**. Used to replay the original response. Same key with a different show_id or seat_labels → 409 (`request_hash` was dropped: comparing these columns does the same job) |
 | amount_paise | int | NOT NULL, CHECK ≥ 0, the sum of seat prices at booking time |
 | status | enum `held` / `confirmed` / `cancelled` | NOT NULL |
 

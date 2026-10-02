@@ -21,7 +21,7 @@ class ShowRepository:
             [
                 {
                     "show_id": show.id,
-                    "seat_id": seat,
+                    "seat_label": seat,
                     "seat_type": SeatTypeEnum.REGULAR,
                     "price_paise": price_paise,
                     "status": SeatStatusEnum.AVAILABLE,

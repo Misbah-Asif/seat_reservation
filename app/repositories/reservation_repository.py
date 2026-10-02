@@ -37,7 +37,7 @@ class ReservationRepository:
     async def count_user_seats(self, show_id: int, user_id: str) -> int:
         """Seats this user currently holds or has confirmed for the show."""
         result = await self.db.execute(
-            select(func.coalesce(func.sum(func.cardinality(Reservation.seat_ids)), 0)).where(
+            select(func.coalesce(func.sum(func.cardinality(Reservation.seat_labels)), 0)).where(
                 Reservation.show_id == show_id,
                 Reservation.user_id == user_id,
                 Reservation.status != ReservationStatusEnum.CANCELLED,
@@ -53,9 +53,9 @@ class ReservationRepository:
         already-decided seat leave without queueing on its row lock.
         """
         result = await self.db.execute(
-            select(Seat.seat_id).where(
+            select(Seat.seat_label).where(
                 Seat.show_id == show_id,
-                Seat.seat_id.in_(seat_labels),
+                Seat.seat_label.in_(seat_labels),
                 Seat.status != SeatStatusEnum.AVAILABLE,
             )
         )
@@ -66,13 +66,13 @@ class ReservationRepository:
 
         Concurrent requests for any of these seats wait here, and when they get
         the lock they see the committed status, so the availability check that
-        follows can't be raced. Locks are taken in seat_id order, the same order
+        follows can't be raced. Locks are taken in seat_label order, the same order
         for every request, so two multi-seat requests can't deadlock.
         """
         result = await self.db.execute(
             select(Seat)
-            .where(Seat.show_id == show_id, Seat.seat_id.in_(seat_labels))
-            .order_by(Seat.seat_id)
+            .where(Seat.show_id == show_id, Seat.seat_label.in_(seat_labels))
+            .order_by(Seat.seat_label)
             .with_for_update()
         )
         return list(result.scalars())
@@ -90,7 +90,7 @@ class ReservationRepository:
             show_id=show_id,
             user_id=user_id,
             idempotency_key=idempotency_key,
-            seat_ids=seat_labels,
+            seat_labels=seat_labels,
             amount_paise=amount_paise,
             status=status,
         )
