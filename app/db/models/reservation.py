@@ -1,4 +1,6 @@
-from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint
+import uuid
+
+from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,7 +21,11 @@ class Reservation(AuditMixin, Base):
         CheckConstraint("amount_paise >= 0", name="ck_reservation_amount_non_negative"),
     )
 
-    id: Mapped[int] = mapped_column(primary_key=True)
+    # UUID so reservation ids can't be guessed or reveal sales volume. Generated
+    # in Python so the id is known before INSERT; the DB default covers manual inserts.
+    id: Mapped[uuid.UUID] = mapped_column(
+        primary_key=True, default=uuid.uuid4, server_default=func.gen_random_uuid()
+    )
     show_id: Mapped[int] = mapped_column(ForeignKey("show.id"), nullable=False)
     # Subject of the auth token, never taken from the request body.
     user_id: Mapped[str] = mapped_column(String(100), nullable=False)
