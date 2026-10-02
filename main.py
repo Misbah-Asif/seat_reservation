@@ -1,10 +1,14 @@
 import uvicorn
 from fastapi import FastAPI
 
-from app.api.router import shows
+from app.api.router import auth, reservation, shows
+from app.core.exceptions import DomainError, domain_error_handler
 
 app = FastAPI(title="Seat Reservation")
+app.include_router(auth.router)
 app.include_router(shows.router)
+app.include_router(reservation.router)
+app.add_exception_handler(DomainError, domain_error_handler)
 
 
 @app.get("/health/live")

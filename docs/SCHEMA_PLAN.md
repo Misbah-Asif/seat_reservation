@@ -9,7 +9,7 @@
 
 **Scope of this step: the schema for all three tables, plus updating `POST /shows`.** The `/reserve` logic (locking, per-user limit, expiry) is the next step and will be discussed first.
 
-All tables keep `AuditMixin` (`is_active, created_at, updated_at, deleted_at`). The enums are stored as `varchar` + CHECK (`native_enum=False`), which is the same pattern as the current `seat.status`.
+All tables keep `AuditMixin` (`created_at, updated_at, deleted_at`). `is_active` was removed: lifecycle lives in each table's `status` column (e.g. a cancelled reservation is `status = 'cancelled'`). The enums are stored as `varchar` + CHECK (`native_enum=False`), which is the same pattern as the current `seat.status`.
 
 ## Tables
 

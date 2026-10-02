@@ -99,6 +99,32 @@ class ReservationRepository:
         await self.db.flush()
         return reservation
 
+    async def get_for_update(self, reservation_id: uuid.UUID) -> Reservation | None:
+        result = await self.db.execute(
+            select(Reservation).where(Reservation.id == reservation_id).with_for_update()
+        )
+        return result.scalar_one_or_none()
+
+    async def lock_reservation_seats(self, reservation_id: uuid.UUID) -> list[Seat]:
+        """Row-lock the seats this reservation owns, in seat_label order (same
+        order as reserve's lock_seats, so cancel and reserve can't deadlock)."""
+        result = await self.db.execute(
+            select(Seat)
+            .where(Seat.reservation_id == reservation_id)
+            .order_by(Seat.seat_label)
+            .with_for_update()
+        )
+        return list(result.scalars())
+
+    async def release_seats(self, reservation_id: uuid.UUID) -> None:
+        # Guarded by reservation_id, never by label: a seat that now belongs to
+        # someone else can't match, so a release can't free it.
+        await self.db.execute(
+            update(Seat)
+            .where(Seat.reservation_id == reservation_id)
+            .values(status=SeatStatusEnum.AVAILABLE, reservation_id=None)
+        )
+
     async def assign_seats(
         self, seat_pks: list[int], reservation_id: uuid.UUID, status: SeatStatusEnum
     ) -> None:

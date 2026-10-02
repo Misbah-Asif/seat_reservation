@@ -24,7 +24,7 @@ class CreateReservationRequest(BaseModel):
         return seats
 
 
-class CreateReservationResponse(BaseModel):
+class ReservationResponse(BaseModel):
     reservation_id: uuid.UUID
     show_id: int
     user_id: str

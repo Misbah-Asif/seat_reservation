@@ -1,16 +1,16 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime
+from sqlalchemy import DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 
 
 class AuditMixin:
-    """Every table gets these four columns. Soft-delete only: nothing in this
-    system is ever hard-deleted, so `deleted_at` is how repositories filter
-    out removed rows, and `is_active` is a separate, business-level on/off
-    switch (a suspended org, a disabled agent) independent of deletion."""
+    """Timestamps for every table. Lifecycle (cancelled, etc.) lives in each
+    table's `status` column, not in an is_active flag.
 
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    updated_at is set by SQLAlchemy on every UPDATE the app sends (ORM and
+    Core update()); manual SQL in psql does not touch it."""
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

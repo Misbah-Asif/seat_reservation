@@ -1,4 +1,4 @@
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.enums import SeatStatusEnum, SeatTypeEnum
@@ -30,3 +30,17 @@ class ShowRepository:
             ],
         )
         return show
+
+    async def get(self, show_id: int) -> Show | None:
+        return await self.db.get(Show, show_id)
+
+    async def get_seat_states(self, show_id: int) -> list[tuple[str, SeatStatusEnum]]:
+        """(label, status) for every seat, in creation order.
+
+        A single SELECT, so all rows come from one snapshot: the counts built
+        from this list always add up to the total, even mid-burst.
+        """
+        result = await self.db.execute(
+            select(Seat.seat_label, Seat.status).where(Seat.show_id == show_id).order_by(Seat.id)
+        )
+        return [(label, status) for label, status in result]

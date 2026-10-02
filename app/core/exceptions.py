@@ -23,6 +23,14 @@ class ShowNotFound(DomainError):
     error = "show_not_found"
 
 
+class ReservationNotFound(DomainError):
+    """Also returned when the reservation belongs to someone else, so a
+    stranger can't tell whether a booking exists."""
+
+    status_code = 404
+    error = "reservation_not_found"
+
+
 class SeatsNotFound(DomainError):
     status_code = 404
     error = "seats_not_found"

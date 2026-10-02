@@ -16,4 +16,11 @@ class Settings(BaseSettings):
     db_max_overflow: int = Field(default=10, ge=0)
     db_pool_timeout: float = Field(default=30, gt=0)
 
+    # Auth. Users: HS256 JWTs signed with jwt_secret. Admin: a static key sent
+    # in the X-Admin-Key header. Both secrets are required; the app won't start
+    # without them.
+    jwt_secret: str = Field(min_length=16)
+    token_ttl_seconds: int = Field(default=1800, ge=60)
+    admin_api_key: str = Field(min_length=16)
+
 settings = Settings()

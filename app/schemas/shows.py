@@ -2,6 +2,8 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StrictInt, StringConstraints
 
+from app.db.models.enums import SeatStatusEnum
+
 
 class CreateShowRequest(BaseModel):
     name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
@@ -17,3 +19,23 @@ class CreateShowRequest(BaseModel):
 class CreateShowResponse(BaseModel):
     id: int
     seats: list[str]
+
+
+class SeatState(BaseModel):
+    seat_label: str
+    status: SeatStatusEnum
+
+
+class SeatCounts(BaseModel):
+    total_seats: int
+    available: int
+    held: int
+    confirmed: int
+
+
+class ShowStateResponse(BaseModel):
+    id: int
+    name: str
+    per_user_limit: int
+    counts: SeatCounts
+    seats: list[SeatState]

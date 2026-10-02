@@ -1,8 +1,18 @@
+from collections import Counter
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.exceptions import ShowNotFound
+from app.db.models.enums import SeatStatusEnum
 from app.repositories.show_repository import ShowRepository
-from app.schemas.shows import CreateShowRequest, CreateShowResponse
+from app.schemas.shows import (
+    CreateShowRequest,
+    CreateShowResponse,
+    SeatCounts,
+    SeatState,
+    ShowStateResponse,
+)
 
 
 class ShowService:
@@ -30,4 +40,26 @@ class ShowService:
         return CreateShowResponse(
             id=show.id,
             seats=seats,
+        )
+
+    async def get_show_state(self, show_id: int) -> ShowStateResponse:
+        show = await self.shows.get(show_id)
+        if show is None:
+            raise ShowNotFound(show_id=show_id)
+
+        seats = await self.shows.get_seat_states(show_id)
+        # Counts come from the same rows as the seat list, so they always agree
+        # and available + held + confirmed == total_seats by construction.
+        by_status = Counter(status for _, status in seats)
+        return ShowStateResponse(
+            id=show.id,
+            name=show.name,
+            per_user_limit=show.per_user_limit,
+            counts=SeatCounts(
+                total_seats=len(seats),
+                available=by_status[SeatStatusEnum.AVAILABLE],
+                held=by_status[SeatStatusEnum.HELD],
+                confirmed=by_status[SeatStatusEnum.CONFIRMED],
+            ),
+            seats=[SeatState(seat_label=label, status=status) for label, status in seats],
         )

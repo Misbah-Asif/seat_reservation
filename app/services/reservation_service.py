@@ -1,8 +1,11 @@
+import uuid
+
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import (
     IdempotencyKeyReused,
     PerUserLimitExceeded,
+    ReservationNotFound,
     SeatsNotFound,
     SeatsUnavailable,
     ShowNotFound,
@@ -11,7 +14,7 @@ from app.db.models.enums import ReservationStatusEnum, SeatStatusEnum
 from app.db.models.reservation import Reservation
 from app.db.models.show import Show
 from app.repositories.reservation_repository import ReservationRepository
-from app.schemas.reservation import CreateReservationRequest, CreateReservationResponse
+from app.schemas.reservation import CreateReservationRequest, ReservationResponse
 
 
 class ReservationService:
@@ -21,7 +24,7 @@ class ReservationService:
 
     async def create_reservation(
         self, show_id: int, user_id: str, payload: CreateReservationRequest
-    ) -> tuple[CreateReservationResponse, bool]:
+    ) -> tuple[ReservationResponse, bool]:
         """Reserve seats all-or-nothing. Returns (reservation, created).
 
         `created` is False for an idempotent replay, so the API can answer 200
@@ -95,9 +98,42 @@ class ReservationService:
 
         return self._to_response(reservation), True
 
+    async def cancel_reservation(
+        self, reservation_id: uuid.UUID, user_id: str
+    ) -> ReservationResponse:
+        """Cancel the caller's own reservation and free its seats.
+
+        Lock order matches reserve: user lock, then the reservation row, then
+        its seats in seat_label order, so cancel and reserve can't deadlock.
+        Cancelling an already-cancelled reservation is a no-op that returns it.
+        """
+        try:
+            # Same per-user lock as reserve: this user's reserves and cancels take
+            # turns, so their held-seat count (the per-user limit) is never raced.
+            await self.reservations.lock_user(user_id)
+
+            reservation = await self.reservations.get_for_update(reservation_id)
+            # Someone else's booking looks exactly like a missing one.
+            if reservation is None or reservation.user_id != user_id:
+                raise ReservationNotFound(reservation_id=str(reservation_id))
+
+            if reservation.status != ReservationStatusEnum.CANCELLED:
+                await self.reservations.lock_reservation_seats(reservation.id)
+                await self.reservations.release_seats(reservation.id)
+                reservation.status = ReservationStatusEnum.CANCELLED
+
+            # Build before commit/rollback so nothing needs reloading afterwards.
+            result = self._to_response(reservation)
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
+
+        return result
+
     @staticmethod
-    def _to_response(reservation: Reservation) -> CreateReservationResponse:
-        return CreateReservationResponse(
+    def _to_response(reservation: Reservation) -> ReservationResponse:
+        return ReservationResponse(
             reservation_id=reservation.id,
             show_id=reservation.show_id,
             user_id=reservation.user_id,
