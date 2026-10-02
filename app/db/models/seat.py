@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +37,8 @@ class Seat(AuditMixin, Base):
         str_enum(SeatStatusEnum, "seat_status"), nullable=False, default=SeatStatusEnum.AVAILABLE
     )
     # Current owner; NULL while available. History lives in reservation.seat_ids.
-    reservation_id: Mapped[int | None] = mapped_column(ForeignKey("reservation.id"), nullable=True)
+    reservation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("reservation.id"), nullable=True
+    )
 
     show: Mapped["Show"] = relationship(back_populates="seats")  # noqa: F821

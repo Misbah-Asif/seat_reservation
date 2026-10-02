@@ -1,9 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.db.models.enums import SeatStatusEnum
 from app.repositories.show_repository import ShowRepository
-from app.schemas.shows import CreateShowRequest, CreateShowResponse, SeatCounts, SeatOut
+from app.schemas.shows import CreateShowRequest, CreateShowResponse
 
 
 class ShowService:
