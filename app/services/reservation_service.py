@@ -22,6 +22,15 @@ class ReservationService:
         self.db = db
         self.reservations = ReservationRepository(db)
 
+    async def list_my_reservations(
+        self, show_id: int, user_id: str, limit: int
+    ) -> list[ReservationResponse]:
+        """The caller's own reservations for a show. Plain reads: no locks."""
+        if await self.db.get(Show, show_id) is None:
+            raise ShowNotFound(show_id=show_id)
+        rows = await self.reservations.list_for_user(show_id, user_id, limit)
+        return [self._to_response(r) for r in rows]
+
     async def create_reservation(
         self, show_id: int, user_id: str, payload: CreateReservationRequest
     ) -> tuple[ReservationResponse, bool]:

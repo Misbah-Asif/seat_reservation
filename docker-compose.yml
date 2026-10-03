@@ -1,0 +1,48 @@
+# Local stack: Postgres + the API, from a clean checkout.
+#   docker compose up --build
+# API on http://localhost:8000. The schema is loaded automatically on the
+# database's first start (db/schema.sql); `docker compose down -v` resets it.
+#
+# Secrets below are demo defaults for local use only. Override them from your
+# shell or a .env file next to this file (JWT_SECRET, ADMIN_API_KEY).
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: seat_app
+      POSTGRES_PASSWORD: seat_app
+      POSTGRES_DB: seat_reservation
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, as POSTGRES_USER, when the data volume is empty: the app's
+      # user owns the tables.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seat_app -d seat_reservation"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    # Published on 5433 (not 5432) so it doesn't clash with a local Postgres,
+    # and only on 127.0.0.1 so nothing outside this machine can reach it.
+    # Connect a client to localhost:5433, db seat_reservation, user/pass seat_app.
+    ports:
+      - "127.0.0.1:5433:5432"
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URI: postgresql+asyncpg://seat_app:seat_app@db:5432/seat_reservation
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-me-0123456789}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-local-dev-admin-key-change-me}
+      TOKEN_TTL_SECONDS: ${TOKEN_TTL_SECONDS:-1800}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

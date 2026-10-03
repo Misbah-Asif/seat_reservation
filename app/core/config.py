@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     db_pool_size: int = Field(default=10, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
     db_pool_timeout: float = Field(default=30, gt=0)
+    # DEBUG also shows access lines for /health/* and /metrics.
+    log_level: str = Field(default="INFO", pattern="(?i)^(DEBUG|INFO|WARNING|ERROR)$")
+
     # /health/ready gives up and returns 503 after this many seconds.
     ready_timeout_seconds: float = Field(default=2, gt=0)
 

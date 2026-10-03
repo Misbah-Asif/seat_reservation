@@ -34,6 +34,17 @@ class ReservationRepository:
         )
         return result.scalar_one_or_none()
 
+    async def list_for_user(self, show_id: int, user_id: str, limit: int) -> list[Reservation]:
+        """This user's reservations for the show, newest first, cancelled
+        included. Uses the (show_id, user_id) index."""
+        result = await self.db.execute(
+            select(Reservation)
+            .where(Reservation.show_id == show_id, Reservation.user_id == user_id)
+            .order_by(Reservation.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars())
+
     async def count_user_seats(self, show_id: int, user_id: str) -> int:
         """Seats this user currently holds or has confirmed for the show."""
         result = await self.db.execute(

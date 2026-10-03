@@ -1,0 +1,17 @@
+# Only app/, main.py and requirements.txt are needed in the image.
+.git
+.gitignore
+.idea
+.env
+env/
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+docs/
+tests/
+db/
+Dockerfile
+docker-compose.yml
