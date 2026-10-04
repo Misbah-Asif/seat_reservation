@@ -20,6 +20,14 @@ from app.services.reservation_service import ReservationService
 # No prefix: reservation routes live under both /shows/... and /reservations/...
 router = APIRouter(tags=["reservation"])
 
+# Per decline: which error details go on the request's log line, and under what
+# name. Just enough to see why it was declined without the response body.
+_DECLINE_LOG_FIELDS = {
+    "seats_unavailable": {"unavailable_seats": "unavailable_seats"},
+    "per_user_limit_exceeded": {"held": "held", "per_user_limit": "per_user_limit"},
+    "seats_not_found": {"seats": "missing_seats"},
+}
+
 
 @router.post(
     "/shows/{show_id}/reserve",
@@ -36,12 +44,17 @@ async def create_reservation(
 ) -> ReservationResponse:
     # Metrics are counted here, where each outcome is final, so every 201, 200
     # replay and domain 4xx the client sees is counted exactly once.
+    log_context()["seats"] = sorted(payload.seats)
     try:
         reservation, created = await ReservationService(db).create_reservation(
             show_id, user_id, payload
         )
     except DomainError as exc:
         log_context()["outcome"] = exc.metric_reason or exc.error
+        # Only the detail that explains this decline goes on the log line.
+        for field, log_as in _DECLINE_LOG_FIELDS.get(exc.error, {}).items():
+            if field in exc.details:
+                log_context()[log_as] = exc.details[field]
         if exc.metric_reason is not None:
             RESERVATIONS_DECLINED.labels(reason=exc.metric_reason).inc()
         raise
