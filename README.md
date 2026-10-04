@@ -8,7 +8,7 @@ FastAPI (async) · PostgreSQL · SQLAlchemy 2 + asyncpg · deployed on Railway.
 - **API docs (Swagger):** https://seat-reservation.up.railway.app/docs
 - **Metrics:** https://seat-reservation.up.railway.app/metrics
 - **Admin key for the live deployment:** `2a858a8e-568a-4a77-856a-fcb66e902bed` (demo key for this deployment only, needed for `POST /shows` and the burst script; it will be rotated after review)
-- **Live logs under load (screen recording):** `<link to recording>`
+- **Live logs under load (screen recording):** [watch on Google Drive](https://drive.google.com/file/d/1vFoD_Ze61t7UrFcpajDwjf06As0Oqo3E/view?usp=sharing)
 - **Design write-up:** [WRITEUP.md](WRITEUP.md)
 
 ## Quick start against the live service
@@ -169,7 +169,7 @@ hot seat H1: 1 winner, 5,999 x 409 · ALL 19 CHECKS PASSED · /metrics matched e
   - The request id comes from the client's `X-Request-ID` if it's safe, otherwise it's generated. It's returned on every response.
   - Unexpected errors are logged once with a traceback and returned as a JSON 500 that carries the request id.
   - Tokens, keys and request bodies are never logged.
-  - **Log access:** Railway's log viewer is account-only, so live logs under load are shown in the [screen recording](<link to recording>).
+  - **Log access:** Railway's log viewer is account-only, so live logs under load are shown in the [screen recording](https://drive.google.com/file/d/1vFoD_Ze61t7UrFcpajDwjf06As0Oqo3E/view?usp=sharing).
   - **About the "rate limit" lines in Railway's logs:** during a burst you'll see lines like this, marked as errors:
     ```
     Railway rate limit reached for deployment, update your application to reduce the logging rate. Messages dropped: 21
