@@ -50,6 +50,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 
 LIMIT = 4
+POLL_SECONDS = 0.5  # how often the counts checker reads GET /shows/{id} during the burst
 _local = threading.local()
 
 
@@ -163,13 +164,14 @@ def main():
         sys.exit(f"could not create show (check --admin-key): {r['status']} {r['body'] or r.get('error')}")
     sid = r["body"]["id"]
 
-    def token(name):  # a named user, unique per run
-        return request(base, "POST", "/auth/token", {"user_id": f"{name}-{run}"})["body"]["token"]
-
-    bulk, need = [], n_random + n_hot + 5
-    while len(bulk) < need:
-        n = min(10_000, need - len(bulk))
-        bulk += [t["token"] for t in request(base, "POST", "/auth/tokens", {"count": n})["body"]]
+    # Every user, scenario roles included, comes from the bulk endpoint: one
+    # call per 10,000 users, so almost all traffic hits the reservation API.
+    n_users = n_random + n_hot + 5 + 5 + 6 + 30 + 7  # + fight, late, bulk-partial, deadlock, 7 roles
+    users = []  # (user_id, token)
+    while len(users) < n_users:
+        n = min(10_000, n_users - len(users))
+        users += [(t["user_id"], t["token"]) for t in request(base, "POST", "/auth/tokens", {"count": n})["body"]]
+    user = lambda: users.pop()[1]  # next unused user's token
 
     def reserve(tok, seats, key, extra=None, request_id=None, ramp=0.0):
         return request(base, "POST", f"/shows/{sid}/reserve",
@@ -178,7 +180,7 @@ def main():
 
     # Done before the burst (and before the metrics snapshot): seats already
     # taken, a key already used, a user already at the limit.
-    owner, keyreuser, limited = token("owner"), token("keyreuser"), token("limited")
+    owner, keyreuser, limited = user(), user(), user()
     reserve(owner, ["B1"], "pre-b")
     reserve(owner, ["P1"], "pre-p")
     reserve(keyreuser, ["Q1"], "same-key")
@@ -186,19 +188,20 @@ def main():
         reserve(limited, [f"L{i}"], f"pre-l{i}")
 
     # ---- the burst: (scenario, token, seats, key, extra body) ---------------
-    twice, retrier, greedy, spoofer = token("twice"), token("retrier"), token("greedy"), token("spoofer")
-    jobs = [("random", bulk.pop(), [random.choice(random_seats)], "k", None) for _ in range(n_random)]
-    jobs += [("hot", bulk.pop(), ["H1"], "k", None) for _ in range(n_hot)]
-    jobs += [("fight", bulk.pop(), ["F1"], "k", None) for _ in range(5)]
-    jobs += [("already_booked", token(f"late{i}"), ["B1"], "k", None) for i in range(5)]
-    jobs += [("bulk_partial", token(f"bulk{i}"), ["P1", f"P{2 + i % 2}"], "k", None) for i in range(6)]
+    twice, retrier, greedy = user(), user(), user()
+    spoofer_id, spoofer = users.pop()  # keep its id: the booking must be in this user's name
+    jobs = [("random", user(), [random.choice(random_seats)], "k", None) for _ in range(n_random)]
+    jobs += [("hot", user(), ["H1"], "k", None) for _ in range(n_hot)]
+    jobs += [("fight", user(), ["F1"], "k", None) for _ in range(5)]
+    jobs += [("already_booked", user(), ["B1"], "k", None) for _ in range(5)]
+    jobs += [("bulk_partial", user(), ["P1", f"P{2 + i % 2}"], "k", None) for i in range(6)]
     jobs += [("twice", twice, ["T1"], "t1", None), ("twice", twice, ["T2"], "t2", None)]
     jobs += [("retry", retrier, ["K1"], "same", None) for _ in range(5)]
     jobs += [("key_reuse", keyreuser, ["Q2"], "same-key", None)]
     jobs += [("limit", limited, ["L5"], "l5", None)]
     jobs += [("greedy", greedy, [f"G{i}"], f"g{i}", None) for i in range(1, 11)]
     pairs = [["D1", "D2"], ["D2", "D1"], ["D2", "D3"], ["D3", "D2"], ["D3", "D4"], ["D4", "D1"]]
-    jobs += [("deadlock", token(f"dl{i}"), pairs[i % 6], "k", None) for i in range(30)]
+    jobs += [("deadlock", user(), pairs[i % 6], "k", None) for i in range(30)]
     jobs += [("spoof", spoofer, ["X1"], "x", {"user_id": "someone-else"})]
     random.shuffle(jobs)
 
@@ -213,7 +216,7 @@ def main():
                 c = p["body"]["counts"]
                 if c["available"] + c["held"] + c["confirmed"] != c["total_seats"]:
                     bad_counts.append(c)
-            time.sleep(0.2)
+            time.sleep(POLL_SECONDS)
 
     def fire(numbered):
         n, (scen, tok, seats, key, extra) = numbered
@@ -332,7 +335,8 @@ def main():
     check("overlapping multi-seat requests: no 5xx", all(x["status"] < 500 for x in by["deadlock"]), codes("deadlock"))
     spoof = by["spoof"][0]
     spoof_user = spoof["body"].get("user_id", "") if isinstance(spoof["body"], dict) else ""
-    check("user_id in body ignored", spoof_user.startswith("spoofer-"), f"booked as {spoof_user!r}")
+    check("user_id in body ignored", spoof_user == spoofer_id,
+          f"booked as {spoof_user!r} (token's user {spoofer_id!r}, body said 'someone-else')")
     check("counts add up during the burst", not bad_counts, f"{len(bad_counts)} bad snapshots")
     check("counts add up after", counts["available"] + counts["held"] + counts["confirmed"] == counts["total_seats"],
           json.dumps(counts))
