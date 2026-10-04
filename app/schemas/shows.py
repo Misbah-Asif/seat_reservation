@@ -3,7 +3,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StrictInt, StringConstraints, field_validator
 
 from app.db.models.enums import SeatStatusEnum
-from app.schemas.common import MAX_DB_INT, SeatLabel
+from app.schemas.common import MAX_DB_INT, NO_NUL, SeatLabel
 
 # Per-seat price cap (₹1 lakh). A booking can have up to 100 seats, so
 # price x 100 must still fit in reservation.amount_paise (INTEGER).
@@ -11,7 +11,9 @@ MAX_PRICE_PAISE = 10_000_000
 
 
 class CreateShowRequest(BaseModel):
-    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100, pattern=NO_NUL)
+    ]
     # Seat labels, e.g. ["A1", "A2"]. Each becomes a regular seat at price_paise.
     seats: list[SeatLabel] = Field(min_length=1, max_length=10_000)
     # Price of every seat, in integer paise.

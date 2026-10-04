@@ -149,6 +149,15 @@ I used an AI coding assistant (Claude Code) throughout. **I set the requirements
 
 **What I caught or pushed back on:**
 - The Swagger auth header not being sent.
-- Using multi auth api for burst.
+- The burst script calling the auth API once per scenario user: I had it fetch every user from one bulk `/auth/tokens` call, so the test traffic is almost entirely the reservation API.
 - False failures in the first live burst. They turned out to be dropped connections plus resends, and the script now accounts for them.
 
+## 7. What I'd do next
+
+1. **Throughput:** run several workers (e.g. 4) with `prometheus_client`'s multiprocess mode. One Python process uses one CPU core, which capped us near 300 req/s (≈3.3 ms of CPU per request). Then trim CPU per request (fewer ORM round trips on the hot path).
+2. **Return 503 + `Retry-After` instead of 500** when the database is unreachable or the pool times out.
+3. **Holds with expiry and a payment step,** as described in section 3.
+4. **Real authentication:** a login service or identity provider, RS256 keys, and turning the demo token endpoints off in production.
+5. **Migrations (Alembic)** instead of a manual `schema.sql` step, and **automated tests in CI**: the burst scenarios as pytest, plus unit tests for the service.
+6. **Log shipping:** send logs to a log service, with sampling for `seat_taken` lines, so a 20k burst isn't cut by the platform's log rate limit.
+7. **Operational:** per-user / per-IP rate limiting; alert rules for section 5; a reconciliation job that checks the seat invariant continuously.

@@ -4,7 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.db.models.enums import ReservationStatusEnum
-from app.schemas.common import SeatLabel
+from app.schemas.common import NO_NUL, SeatLabel
 
 
 class CreateReservationRequest(BaseModel):
@@ -12,7 +12,7 @@ class CreateReservationRequest(BaseModel):
     # "user_id" in the body is ignored, so it can't be spoofed.
     seats: list[SeatLabel] = Field(min_length=1, max_length=100)
     idempotency_key: Annotated[
-        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100, pattern=NO_NUL)
     ]
 
     @field_validator("seats")

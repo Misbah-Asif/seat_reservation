@@ -7,6 +7,7 @@ FastAPI (async) · PostgreSQL · SQLAlchemy 2 + asyncpg · deployed on Railway.
 - **Live URL:** https://seat-reservation.up.railway.app
 - **API docs (Swagger):** https://seat-reservation.up.railway.app/docs
 - **Metrics:** https://seat-reservation.up.railway.app/metrics
+- **Admin key for the live deployment:** `2a858a8e-568a-4a77-856a-fcb66e902bed` (demo key for this deployment only, needed for `POST /shows` and the burst script; it will be rotated after review)
 - **Live logs under load (screen recording):** `<link to recording>`
 - **Design write-up:** [WRITEUP.md](WRITEUP.md)
 
@@ -14,7 +15,7 @@ FastAPI (async) · PostgreSQL · SQLAlchemy 2 + asyncpg · deployed on Railway.
 
 ```bash
 export URL=https://seat-reservation.up.railway.app
-export ADMIN=<admin key for the live deployment, shared with the submission>
+export ADMIN=2a858a8e-568a-4a77-856a-fcb66e902bed
 
 # 1. create a show (admin)
 curl -s -X POST $URL/shows -H "X-Admin-Key: $ADMIN" -H 'content-type: application/json' \
@@ -113,8 +114,19 @@ The app refuses to start if a required secret is missing.
 
 ## Burst test (one command)
 
+**Against the live service** (copy-paste, from the repo root):
 ```bash
-ADMIN_API_KEY=<key> ./burst.sh <BASE_URL> [--requests 2000] [--concurrency 200] [--seats N]
+ADMIN_API_KEY=2a858a8e-568a-4a77-856a-fcb66e902bed ./burst.sh https://seat-reservation.up.railway.app --requests 20000 --concurrency 500
+```
+
+**Against a local `docker compose up`** (uses the local demo admin key by default):
+```bash
+./burst.sh http://localhost:8000
+```
+
+General form:
+```bash
+ADMIN_API_KEY=<key> ./burst.sh <BASE_URL> [--requests 2000] [--concurrency 200] [--seats N] [--ramp 3]
 ```
 
 It needs only `python3` (standard library). It reproduces the on-sale stampede in **one mixed burst**:
