@@ -14,7 +14,10 @@ class Settings(BaseSettings):
     # pool_size + max_overflow must stay under the DB's max_connections.
     db_pool_size: int = Field(default=10, ge=1)
     db_max_overflow: int = Field(default=10, ge=0)
-    db_pool_timeout: float = Field(default=30, gt=0)
+    # Long on purpose: in a big burst, requests queue for a connection, and a
+    # request that gives up here becomes a 500. Waiting longer keeps it a
+    # normal answer (201/409); clients set their own timeouts.
+    db_pool_timeout: float = Field(default=120, gt=0)
     # DEBUG also shows access lines for /health/* and /metrics.
     log_level: str = Field(default="INFO", pattern="(?i)^(DEBUG|INFO|WARNING|ERROR)$")
 

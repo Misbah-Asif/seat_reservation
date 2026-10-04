@@ -14,6 +14,7 @@ from app.core.metrics import (
     RESERVATIONS_DECLINED,
 )
 from app.db.session import get_db
+from app.schemas.common import ShowId
 from app.schemas.reservation import CreateReservationRequest, ReservationResponse
 from app.services.reservation_service import ReservationService
 
@@ -36,7 +37,7 @@ _DECLINE_LOG_FIELDS = {
     responses={200: {"description": "Idempotent replay: the original reservation"}},
 )
 async def create_reservation(
-    show_id: int,
+    show_id: ShowId,
     payload: CreateReservationRequest,
     response: Response,
     user_id: str = Depends(get_current_user_id),
@@ -71,7 +72,7 @@ async def create_reservation(
 
 @router.get("/shows/{show_id}/reservations", response_model=list[ReservationResponse])
 async def list_my_reservations(
-    show_id: int,
+    show_id: ShowId,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),

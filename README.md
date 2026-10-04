@@ -105,7 +105,7 @@ uvicorn main:app --reload
 | `ADMIN_API_KEY` | (required) | Admin key for `POST /shows` (≥ 16 chars) |
 | `TOKEN_TTL_SECONDS` | 1800 | User token lifetime |
 | `DEFAULT_PER_USER_LIMIT` | 4 | Limit for new shows that don't set one |
-| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` / `DB_POOL_TIMEOUT` | 10 / 10 / 30 | Connection pool |
+| `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` / `DB_POOL_TIMEOUT` | 10 / 10 / 120 | Connection pool (timeout is long so queued requests wait instead of failing) |
 | `LOG_LEVEL` | INFO | `DEBUG` also logs `/health/*` and `/metrics` calls |
 | `READY_TIMEOUT_SECONDS` | 2 | `/health/ready` gives up after this |
 
@@ -134,7 +134,6 @@ It prints the outcome distribution (confirmed / declined by reason / 5xx), laten
 - `/metrics` matches the responses;
 - zero 5xx.
 
-Details: [docs/BURST_SCRIPT.md](docs/BURST_SCRIPT.md).
 
 **Latest live run** (from a laptop in India against Railway US West):
 ```
@@ -178,7 +177,6 @@ The app is built from the `Dockerfile`: one uvicorn worker, a non-root user, `PO
    - `JWT_SECRET`, `ADMIN_API_KEY`, and pool sizes.
 4. **Health check path** `/health/ready`, **replicas = 1** (the metrics are per process).
 
-Options considered: [docs/DEPLOYMENT_OPTIONS.md](docs/DEPLOYMENT_OPTIONS.md).
 
 ## Project layout
 
@@ -191,5 +189,5 @@ app/db/                     models, session, enums
 app/core/                   config, auth, logging, metrics, errors
 db/schema.sql               full schema (Postgres 13+), safe to re-run
 burst.sh, scripts/burst.py  load test + correctness checks
-docs/                       assignment, schema plan, deployment options, burst guide, decision log
+docs/                       assignment brief, schema plan
 ```

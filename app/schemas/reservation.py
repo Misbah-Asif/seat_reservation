@@ -4,8 +4,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from app.db.models.enums import ReservationStatusEnum
-
-SeatLabel = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+from app.schemas.common import SeatLabel
 
 
 class CreateReservationRequest(BaseModel):

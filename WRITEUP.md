@@ -110,7 +110,7 @@ These go on a dashboard (confirmed rate, declines by reason, seats left per show
 
 ## 6. AI usage: directed vs decided
 
-I used an AI coding assistant (Claude Code) throughout. **I set the requirements, made the data-model and API decisions, and ran the deployment and live testing.** It explained its proposals before I accepted them, and I changed several of them.** It helped me in coding; .
+I used an AI coding assistant (Claude Code) throughout. **I set the requirements, made the data-model and API decisions, and ran the deployment and live testing.** It explained its proposals before I accepted them, and I changed several of them. It helped me in coding.
 
 **I decided** (directed it, or chose between options it laid out):
 - **Data model:**
@@ -124,20 +124,21 @@ I used an AI coding assistant (Claude Code) throughout. **I set the requirements
 - **Reserve and cancel:**
   - reserve should be **"correct and scalable" from the start**, not simple first;
   - cancel rules: owner-only, seats freed, repeat cancel → 200;
-  - a list-my-reservations endpoint depends the user id in token.
-**The concurrency core:**
+  - a list-my-reservations endpoint that depends on the user id in the token.
+- **The concurrency core:**
   - `SELECT … FOR UPDATE ORDER BY seat_label` with all-or-nothing;
   - idempotency before every decline, and 200 for replays.
 - **Auth:** a **bulk token endpoint** for load testing, a single-token endpoint, a UUID admin key, 30-minute token expiry.
 - **Observability & logs:**
   - in-memory counters plus seat gauges from the database, with a single worker;
-  - JSON logging with request ids and minimum required request details for tracing .
-- **burst:**
+  - JSON logging with request ids and minimum required request details for tracing.
+- **Burst:**
   - seat details on the existing log line rather than log sampling;
   - most burst scenarios, one mixed burst, and the `--seats` option.
 - **Deploy and scope:** Railway (Hobby, US West) with a manual schema step; cutting optional work on the last day.
 
 **AI proposed, and I accepted after it explained:**
+- **Concurrency:**
   - the per-user advisory lock;
   - the unlocked pre-check;
 - **API and auth:** domain errors as 4xx with reason codes; JWT details (algorithm pinned, Swagger security schemes).

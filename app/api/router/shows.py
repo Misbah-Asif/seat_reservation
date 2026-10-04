@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_admin
 from app.db.session import get_db
+from app.schemas.common import ShowId
 from app.schemas.shows import CreateShowRequest, CreateShowResponse, ShowStateResponse
 from app.services.show_service import ShowService
 
@@ -26,5 +27,5 @@ async def create_show(
 
 # Public: anyone may view seat availability.
 @router.get("/{show_id}", response_model=ShowStateResponse)
-async def get_show(show_id: int, db: AsyncSession = Depends(get_db)) -> ShowStateResponse:
+async def get_show(show_id: ShowId, db: AsyncSession = Depends(get_db)) -> ShowStateResponse:
     return await ShowService(db).get_show_state(show_id)
